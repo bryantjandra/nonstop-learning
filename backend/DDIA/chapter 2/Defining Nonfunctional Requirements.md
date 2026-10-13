@@ -5,7 +5,7 @@
 
 *Examples of NFRs*: 
 1. measuring the performance of a system
-2. system's reliabality (continuing to work correctly, even when things go wrong), 
+2. system's reliability (continuing to work correctly, even when things go wrong), 
 3. scalable (having efficient ways of adding computing capacity as the load on the system grows). 
 4. maintainable system in the long term
 
@@ -51,11 +51,39 @@ The query is also **quite expensive**.
 ### How could we do better then?
 
 **Stop polling**:
-1. Server should actively push new posts to any followers who are currently online. Thus, every time a user makes a post, we precompute the results of the query for each of the user's followers and store them in a cache. 
-2. Whenever a user logs in, data is served from this cache.
+1. Server should actively push new posts to any followers who are currently online. 
+2. We should precompute the results of the query such that a user's request for their home timeline can be served from a cache.
+
+For each user, we store a data structure (e.g. cache) containing their home timeline (posts of people they are following). This **cache** serves as a *materialized view*. 
+
+Every time a user makes a post, we look up all their followers and insert that post into this data structure of every follower. Thus, whenever a user logs in, we can simply hand them this precomputed home timeline. This **process** is known as *materialization*.
+
+Moreover, to receive a notification about any new posts on their timeline, the user's client simply needs to subscribe to the stream of posts being added to their data structure.
+
 
 **Downside**: Need to do more work every time a user makes a post.
 
 When one initial request results in several downstream requests being carried out --> **fan-out** (the factor by which the number of requests increases). 
 
+*if the average post* reaches 200 followers (fan-out factor of 200), and ar a rate of 2,800 posts/second, we will still need to do >= 1,000,000 writes/second (still alot but better than previous 400,000,000 lookups/second). 
 
+
+
+
+## Describing Performance
+
+There are *2 main types* of metrics when discussing software performance.
+
+1. **Response Time**: Elapsed time from the moment when a user makes a request until they received the response. 
+2. **Throughput**: Number of requests per second, or data volume per second, that the system is processing. For a given allocation of hardware resources, there's a maximum throughput that can be handled. 
+
+![[ThroughputResponseRelationship.png]]
+
+As shown in the figure above, a *service* usually has a low response time when throughput is low. But, response times increases as load increases. 
+
+This is primarily because of **queueing**. When a request arrives in a highly loaded system, the CPU Is likely already in the process of handling an earlier request, and therefore the incoming request needs to wait until the earlier request has been completed. 
+
+> As throughput approaches the maximum that **the hardware can handle**, queueing delays increase sharply!
+
+
+ 
